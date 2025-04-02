@@ -1,4 +1,5 @@
 ;(function(){
+	const myport = process.env.PORT || 8765;
 	var cluster = require('cluster');
 	if(cluster.isMaster){
 	  return cluster.fork() && cluster.on('exit',function(){ cluster.fork(); require('../lib/crashed') });
@@ -7,7 +8,7 @@
 	var fs = require('fs'), env = process.env;
 	var GUN = require('gun'); // require('gun');
 	var opt = {
-		port: env.PORT || process.argv[2] || 10000,
+		port: env.PORT || process.argv[2] || myport,
 		peers: env.PEERS && env.PEERS.split(',') || []
 	};
 
