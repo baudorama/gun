@@ -1,35 +1,51 @@
-;(function(){
-	const port = process.env.PORT || 8765;
-	var cluster = require('cluster');
-	if(cluster.isMaster){
-	  return cluster.fork() && cluster.on('exit',function(){ cluster.fork(); require('../lib/crashed') });
-	}
+const WebSocket = require("ws");
+const http = require("http");
 
-	var fs = require('fs'), env = process.env;
-	var GUN = require('gun'); // require('gun');
-	var opt = {
-		port: env.PORT || process.argv[2] || port,
-		peers: env.PEERS && env.PEERS.split(',') || []
-	};
+// Create an HTTP server
+const server = http.createServer((req, res) => {
+  res.writeHead(200, { "Content-Type": "text/plain" });
+  res.end("WebSocket server is running.");
+});
 
-	if(fs.existsSync((opt.home = require('os').homedir())+'/cert.pem')){
-		env.HTTPS_KEY = env.HTTPS_KEY || opt.home+'/key.pem';
-		env.HTTPS_CERT = env.HTTPS_CERT || opt.home+'/cert.pem';
-	}
-	if(env.HTTPS_KEY){
-		opt.port = 443;
-		opt.key = fs.readFileSync(env.HTTPS_KEY);
-		opt.cert = fs.readFileSync(env.HTTPS_CERT);
-		opt.server = require('https').createServer(opt, GUN.serve(__dirname));
-		require('http').createServer(function(req, res){
-			res.writeHead(301, {"Location": "https://"+req.headers['host']+req.url });
-			res.end();
-		}).listen(80);
-	} else {
-		opt.server = require('http').createServer(GUN.serve(__dirname));
-	}
+// Create a WebSocket server by passing the HTTP server
+const wss = new WebSocket.Server({ server });
 
-	var gun = GUN({web: opt.server.listen(opt.port), peers: opt.peers});
-	console.log('Relay peer started on port ' + opt.port + ' with /gun');
-	module.exports = gun;
-}());
+let counter = 0;
+
+const messager = setInterval(() => {
+  let message = "message " + ++counter;
+  wss.clients.forEach((client) => {
+    if (client && client.readyState === WebSocket.OPEN) {
+      client.send(message);
+    }
+  });
+  console.log(message);
+}, 1000);
+
+// Event handler for WebSocket connections
+wss.on("connection", (ws) => {
+  console.log("A new client has connected.");
+
+  // Event handler for incoming messages from clients
+  ws.on("message", (message) => {
+    console.log(`Received: ${message}`);
+
+    // Broadcast the received message to all connected clients
+    wss.clients.forEach((client) => {
+      if (client !== ws && client.readyState === WebSocket.OPEN) {
+        client.send(message);
+      }
+    });
+  });
+
+  // Event handler for WebSocket connection closing
+  ws.on("close", () => {
+    console.log("A client has disconnected.");
+  });
+});
+
+// Start the HTTP server on port 3000
+const PORT = process.env.PORT || 3000;
+server.listen(PORT, () => {
+  console.log(`WebSocket server is listening on port ${PORT}`);
+});
