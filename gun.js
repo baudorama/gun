@@ -1,51 +1,24 @@
-const WebSocket = require("ws");
-const http = require("http");
+const port = process.env.PORT || 8765;
+var cluster = require("cluster");
+if (cluster.isMaster) {
+  return (
+    cluster.fork() &&
+    cluster.on("exit", function () {
+      cluster.fork();
+      require("../lib/crashed");
+    })
+  );
+}
 
-// Create an HTTP server
-const server = http.createServer((req, res) => {
-  res.writeHead(200, { "Content-Type": "text/plain" });
-  res.end("WebSocket server is running.");
-});
+var fs = require("fs"),
+  env = process.env;
+var GUN = require("gun"); // require('gun');
+var opt = {
+  port: env.PORT || process.argv[2] || port,
+  peers: (env.PEERS && env.PEERS.split(",")) || [],
+};
 
-// Create a WebSocket server by passing the HTTP server
-const wss = new WebSocket.Server({ server });
+opt.server = require("http").createServer(GUN.serve(__dirname));
 
-let counter = 0;
-
-const messager = setInterval(() => {
-  let message = "message " + ++counter;
-  wss.clients.forEach((client) => {
-    if (client && client.readyState === WebSocket.OPEN) {
-      client.send(message);
-    }
-  });
-  console.log(message);
-}, 10000);
-
-// Event handler for WebSocket connections
-wss.on("connection", (ws) => {
-  console.log("A new client has connected.");
-
-  // Event handler for incoming messages from clients
-  ws.on("message", (message) => {
-    console.log(`Received: ${message}`);
-
-    // Broadcast the received message to all connected clients
-    wss.clients.forEach((client) => {
-      if (client !== ws && client.readyState === WebSocket.OPEN) {
-        client.send(message);
-      }
-    });
-  });
-
-  // Event handler for WebSocket connection closing
-  ws.on("close", () => {
-    console.log("A client has disconnected.");
-  });
-});
-
-// Start the HTTP server on port 3000
-const PORT = process.env.PORT || 3000;
-server.listen(PORT, () => {
-  console.log(`WebSocket server is listening on port ${PORT}`);
-});
+var gun = GUN({ web: opt.server.listen(opt.port), peers: opt.peers });
+console.log("Relay peer started on port " + opt.port + " with /gun");
