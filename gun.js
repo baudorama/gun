@@ -20,7 +20,7 @@ const messager = setInterval(() => {
     }
   });
   console.log(message);
-}, 1000);
+}, 10000);
 
 // Event handler for WebSocket connections
 wss.on("connection", (ws) => {
