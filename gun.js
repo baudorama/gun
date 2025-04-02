@@ -7,7 +7,7 @@
 	var fs = require('fs'), env = process.env;
 	var GUN = require('gun'); // require('gun');
 	var opt = {
-		port: env.PORT || process.argv[2] || 8765,
+		port: env.PORT || process.argv[2] || 80,
 		peers: env.PEERS && env.PEERS.split(',') || []
 	};
 
